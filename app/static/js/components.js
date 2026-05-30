@@ -14,6 +14,7 @@ const UI = {
             scoring: 'Memilih subjek utama...',
             masking: 'Membuat area penghapusan...',
             inpainting: 'Menghapus wajah background...',
+            blurring: 'Blur wajah background...',
             done: 'Selesai!',
             no_faces: 'Tidak ada wajah terdeteksi',
             no_background: 'Hanya 1 wajah, tidak perlu dihapus',

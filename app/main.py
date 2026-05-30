@@ -45,6 +45,7 @@ class UploadData(BaseModel):
 class ProcessData(BaseModel):
     task_id: str
     status: str
+    mode: str
 
 
 class StatusData(BaseModel):
@@ -158,20 +159,26 @@ async def upload_image(file: UploadFile = File(..., description="Image file (JPG
 
 
 @app.post("/api/process/{task_id}", response_model=ApiResponse, tags=["Pipeline"],
-          responses={404: {"model": ApiResponse}})
-async def process_image(task_id: str, background_tasks: BackgroundTasks):
+          responses={404: {"model": ApiResponse}, 400: {"model": ApiResponse}})
+async def process_image(task_id: str, background_tasks: BackgroundTasks, mode: str = "remove"):
     """Start the face removal pipeline.
 
+    Args:
+        mode: Processing mode — "remove" (inpaint background faces) or "blur" (blur background faces).
+
     Runs asynchronously in the background. Poll /api/status/{task_id} for progress.
-    Pipeline stages: detecting → scoring → masking → inpainting → done.
+    Pipeline stages: detecting → scoring → masking → processing → done.
     """
+    if mode not in ("remove", "blur"):
+        raise HTTPException(400, "Mode must be 'remove' or 'blur'")
+
     task_dir = UPLOAD_DIR / task_id
     if not task_dir.exists():
         raise HTTPException(404, "Task not found")
 
-    _update_status(task_dir, status="processing", stage="starting", progress=5)
-    background_tasks.add_task(run_pipeline, task_id)
-    return ok(ProcessData(task_id=task_id, status="processing"))
+    _update_status(task_dir, status="processing", stage="starting", progress=5, mode=mode)
+    background_tasks.add_task(run_pipeline, task_id, mode)
+    return ok(ProcessData(task_id=task_id, status="processing", mode=mode))
 
 
 @app.get("/api/status/{task_id}", response_model=ApiResponse, tags=["Pipeline"],

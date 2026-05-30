@@ -54,6 +54,17 @@
         btnReset.classList.add('hidden');
     }
 
+    // --- Mode selector ---
+    let selectedMode = 'remove';
+    document.querySelectorAll('.mode-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+            document.querySelectorAll('.mode-option').forEach(o => o.classList.remove('selected'));
+            opt.classList.add('selected');
+            opt.querySelector('input').checked = true;
+            selectedMode = opt.dataset.mode;
+        });
+    });
+
     // --- Process ---
     btnProcess.addEventListener('click', async () => {
         if (!selectedFile) return;
@@ -67,7 +78,7 @@
 
             UI.showView('view-processing');
             UI.updateProgress('starting', 5);
-            await API.process(task_id);
+            await API.process(task_id, selectedMode);
             startPolling(task_id);
         } catch (err) {
             UI.showError(err.message);

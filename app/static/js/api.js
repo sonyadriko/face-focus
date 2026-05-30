@@ -30,8 +30,8 @@ const API = {
         return this._handle(res);
     },
 
-    async process(taskId) {
-        const res = await fetch(`/api/process/${taskId}`, { method: 'POST', headers: this._headers() });
+    async process(taskId, mode = 'remove') {
+        const res = await fetch(`/api/process/${taskId}?mode=${mode}`, { method: 'POST', headers: this._headers() });
         return this._handle(res);
     },
 

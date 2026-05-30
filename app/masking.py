@@ -111,3 +111,65 @@ def generate_mask(faces: list[dict], image_width: int, image_height: int,
         mask = cv2.GaussianBlur(mask, (31, 31), 15)
 
     return mask
+
+
+def generate_blur_mask(faces: list[dict], image_width: int, image_height: int,
+                        padding_ratio: float = 0.4) -> np.ndarray:
+    """Generate mask for blur mode — face bbox with padding only.
+
+    No smart body detection. Just expands each background face bbox
+    by padding_ratio and creates an elliptical mask.
+
+    Args:
+        faces: scored face list
+        image_width: image width
+        image_height: image height
+        padding_ratio: how much to expand bbox (0.4 = 40% each side)
+    """
+    mask = np.zeros((image_height, image_width), dtype=np.uint8)
+
+    for face in faces:
+        if face.get("is_main"):
+            continue
+
+        x1, y1, x2, y2 = [int(v) for v in face["bbox"]]
+        fw, fh = x2 - x1, y2 - y1
+        pad_x = int(fw * padding_ratio)
+        pad_y = int(fh * padding_ratio)
+
+        mx1 = max(0, x1 - pad_x)
+        my1 = max(0, y1 - pad_y)
+        mx2 = min(image_width, x2 + pad_x)
+        my2 = min(image_height, y2 + pad_y)
+
+        cx, cy = (mx1 + mx2) // 2, (my1 + my2) // 2
+        cv2.ellipse(mask, (cx, cy), ((mx2 - mx1) // 2, (my2 - my1) // 2), 0, 0, 360, 255, -1)
+
+    # Soft edges for smooth blur transition
+    if np.any(mask > 0):
+        mask = cv2.GaussianBlur(mask, (21, 21), 10)
+
+    return mask
+
+
+def apply_blur(image: np.ndarray, mask: np.ndarray, blur_strength: int = 99) -> np.ndarray:
+    """Apply Gaussian blur to masked areas of the image.
+
+    Args:
+        image: BGR image
+        mask: binary mask (white = area to blur)
+        blur_strength: kernel size (must be odd, higher = more blur)
+
+    Returns:
+        Image with blurred regions
+    """
+    # Ensure kernel size is odd
+    if blur_strength % 2 == 0:
+        blur_strength += 1
+
+    blurred = cv2.GaussianBlur(image, (blur_strength, blur_strength), 0)
+    mask_3ch = np.stack([mask] * 3, axis=-1).astype(np.float32) / 255.0
+    mask_3ch = cv2.GaussianBlur(mask_3ch, (11, 11), 5)
+
+    result = (blurred * mask_3ch + image * (1 - mask_3ch)).astype(np.uint8)
+    return result

@@ -6,7 +6,7 @@ from pathlib import Path
 from app.config import UPLOAD_DIR, RESULTS_DIR
 from app.detection import detect_faces
 from app.scoring import score_faces
-from app.masking import generate_mask
+from app.masking import generate_mask, generate_blur_mask, apply_blur
 from app.inpainting import inpaint
 
 
@@ -17,8 +17,13 @@ def _update_status(task_dir: Path, **kwargs):
     path.write_text(json.dumps(data))
 
 
-def run_pipeline(task_id: str):
-    """Run the full face removal pipeline."""
+def run_pipeline(task_id: str, mode: str = "remove"):
+    """Run the face processing pipeline.
+
+    Args:
+        task_id: task identifier
+        mode: "remove" (inpaint) or "blur" (Gaussian blur)
+    """
     task_dir = UPLOAD_DIR / task_id
     result_dir = RESULTS_DIR / task_id
     result_dir.mkdir(parents=True, exist_ok=True)
@@ -57,15 +62,20 @@ def run_pipeline(task_id: str):
             cv2.imwrite(str(result_dir / "result.jpg"), img)
             return
 
-        # Mask
-        _update_status(task_dir, stage="masking", progress=65)
-        mask = generate_mask(scored, w, h, image=img)
-        mask_path = str(result_dir / "mask.png")
-        cv2.imwrite(mask_path, mask)
-
-        # Inpaint
-        _update_status(task_dir, stage="inpainting", progress=75)
-        inpaint(original, mask_path, str(result_dir / "result.jpg"))
+        # Mask + Process
+        if mode == "blur":
+            _update_status(task_dir, stage="masking", progress=65)
+            mask = generate_blur_mask(scored, w, h)
+            _update_status(task_dir, stage="blurring", progress=75)
+            result = apply_blur(img, mask)
+            cv2.imwrite(str(result_dir / "result.jpg"), result)
+        else:
+            _update_status(task_dir, stage="masking", progress=65)
+            mask = generate_mask(scored, w, h, image=img)
+            mask_path = str(result_dir / "mask.png")
+            cv2.imwrite(mask_path, mask)
+            _update_status(task_dir, stage="inpainting", progress=75)
+            inpaint(original, mask_path, str(result_dir / "result.jpg"))
 
         _update_status(task_dir, stage="done", progress=100, status="done",
                        message="Processing complete.")

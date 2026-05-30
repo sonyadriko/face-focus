@@ -156,5 +156,24 @@
 .face-bbox.main { border-color: hsl(142 76% 40%); }
 .face-bbox.background { border-color: hsl(0 84% 60%); }
 
+/* Mode selector */
+.mode-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid hsl(240 5.9% 90%);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.mode-option:hover {
+    background: hsl(240 4.8% 97%);
+}
+.mode-option.selected {
+    border-color: hsl(240 5.9% 10%);
+    background: hsl(240 4.8% 97%);
+}
+
 /* Utility */
 .hidden { display: none !important; }
