@@ -74,8 +74,37 @@ def run_pipeline(task_id: str, mode: str = "remove"):
             mask = generate_mask(scored, w, h, image=img)
             mask_path = str(result_dir / "mask.png")
             cv2.imwrite(mask_path, mask)
-            _update_status(task_dir, stage="inpainting", progress=75)
-            inpaint(original, mask_path, str(result_dir / "result.jpg"))
+
+            # Process each face individually for better quality
+            _update_status(task_dir, stage="inpainting", progress=70)
+            result_path = str(result_dir / "result.jpg")
+            current_img = img.copy()
+            bg_faces = [f for f in scored if not f["is_main"]]
+
+            for i, face in enumerate(bg_faces):
+                # Generate mask for this single face
+                single_mask = generate_mask([face, *[f for f in scored if f["is_main"]]],
+                                            w, h, image=current_img)
+                single_mask_path = str(result_dir / "_temp_mask.png")
+                cv2.imwrite(single_mask_path, single_mask)
+
+                # Save current state for inpainting
+                temp_input = str(result_dir / "_temp_input.jpg")
+                cv2.imwrite(temp_input, current_img)
+
+                # Inpaint this face
+                inpaint(temp_input, single_mask_path, result_path)
+
+                # Load result for next iteration
+                current_img = cv2.imread(result_path)
+
+                # Update progress
+                pct = 70 + int((i + 1) / len(bg_faces) * 25)
+                _update_status(task_dir, progress=pct)
+
+            # Cleanup temp files
+            (result_dir / "_temp_mask.png").unlink(missing_ok=True)
+            (result_dir / "_temp_input.jpg").unlink(missing_ok=True)
 
         _update_status(task_dir, stage="done", progress=100, status="done",
                        message="Processing complete.")

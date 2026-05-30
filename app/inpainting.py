@@ -37,13 +37,13 @@ def inpaint(image_path: str, mask_path: str, output_path: str) -> str:
     mask_sd = mask.resize((sd, sd), Image.NEAREST)
 
     result_sd = _get_pipe()(
-        prompt="natural clean background, photorealistic, seamless, no people, matching environment",
-        negative_prompt="blurry, distorted, artifacts, text, watermark, ugly, discolored",
+        prompt="clean empty background, photorealistic, seamless, no people, matching environment, high quality",
+        negative_prompt="blurry, distorted, artifacts, text, watermark, ugly, discolored, low quality, pixelated",
         image=img_sd,
         mask_image=mask_sd,
         num_inference_steps=30,
         guidance_scale=7.5,
-        strength=1.0,
+        strength=0.9,
     ).images[0]
 
     # Resize back and blend
@@ -55,9 +55,8 @@ def inpaint(image_path: str, mask_path: str, output_path: str) -> str:
         mask_np = cv2.resize(mask_np, (orig_w, orig_h), interpolation=cv2.INTER_NEAREST)
 
     # Feather mask edges for smooth transition
-    alpha = cv2.GaussianBlur(
-        np.stack([mask_np] * 3, axis=-1).astype(np.float32) / 255.0, (11, 11), 5
-    )
+    alpha = np.stack([mask_np] * 3, axis=-1).astype(np.float32) / 255.0
+    alpha = cv2.GaussianBlur(alpha, (21, 21), 10)
 
     blended = (result_full * alpha + original_np * (1 - alpha)).astype(np.uint8)
     Image.fromarray(blended).save(output_path, quality=95)
